@@ -1,0 +1,6 @@
+{
+  "name": "Folio",
+  "description": "Fast, smooth PDF reader engineered for large documents with pinch-to-zoom, automatic reading position memory, and recent files.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

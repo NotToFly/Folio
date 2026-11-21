@@ -1,0 +1,62 @@
+<resources>
+    <string name="app_name">Folio</string>
+
+    <!-- Library Screen -->
+    <string name="library_title">Folio</string>
+    <string name="library_subtitle">Personal Document Desk</string>
+    <string name="action_open_pdf">Open PDF</string>
+    <string name="action_try_sample">Try 24-Page Sample Guide</string>
+    <string name="section_continue_reading">Continue Reading</string>
+    <string name="section_recent_files">Recent Documents</string>
+    <string name="action_resume">Resume</string>
+    <string name="search_placeholder">Search recent documents…</string>
+    <string name="filter_all">All</string>
+    <string name="filter_in_progress">In Progress</string>
+    <string name="filter_finished">Finished</string>
+    <string name="filter_pinned">Pinned</string>
+    <string name="empty_title">Your reading desk is clear</string>
+    <string name="empty_body">Open any PDF from your device to enjoy smooth scrolling, sharp pinch-to-zoom, and automatic page memory—even on massive files.</string>
+    <string name="empty_filtered_title">No matching documents</string>
+    <string name="empty_filtered_body">Try clearing your search query or switching the active filter.</string>
+    <string name="action_clear_filters">Clear Filters</string>
+    <string name="page_progress_format">Page %1$d of %2$d</string>
+    <string name="percent_read_format">%1$d%% read</string>
+    <string name="finished_badge">Finished</string>
+    <string name="just_started_badge">New</string>
+    <string name="action_pin">Pin document</string>
+    <string name="action_unpin">Unpin document</string>
+    <string name="action_remove_recent">Remove from recent</string>
+    <string name="action_clear_all_recent">Clear history</string>
+    <string name="clear_history_title">Clear reading history?</string>
+    <string name="clear_history_message">This removes all items and saved page positions from your recent list. Your actual PDF files are untouched.</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="document_removed_snackbar">Removed \"%1$s\" from recent</string>
+    <string name="action_undo">Undo</string>
+
+    <!-- Reader Screen -->
+    <string name="cd_back_to_library">Back to library</string>
+    <string name="cd_jump_to_page">Jump to page</string>
+    <string name="cd_reading_mode">Switch reading appearance</string>
+    <string name="cd_zoom_out">Zoom out</string>
+    <string name="cd_zoom_in">Zoom in</string>
+    <string name="cd_reset_zoom">Reset zoom to 100%%</string>
+    <string name="cd_pdf_page">PDF page %1$d</string>
+    <string name="cd_document_cover">Cover preview for %1$s</string>
+    <string name="cd_empty_illustration">Illustration of open book and folios on a desk</string>
+    <string name="resumed_page_toast">Resumed at page %1$d of %2$d</string>
+    <string name="loading_document">Preparing document…</string>
+    <string name="reading_mode_paper">Paper</string>
+    <string name="reading_mode_sepia">Sepia</string>
+    <string name="reading_mode_night">Night</string>
+    <string name="goto_page_title">Go to Page</string>
+    <string name="goto_page_hint">Enter page (1–%1$d)</string>
+    <string name="goto_page_error">Please enter a page between 1 and %1$d</string>
+    <string name="action_go">Go</string>
+    <string name="zoom_percent_format">%1$d%%</string>
+    <string name="reader_error_title">Unable to open PDF</string>
+    <string name="reader_error_permission">Access to this file expired or the file was moved. Re-open it from your device or remove it from your recent list.</string>
+    <string name="action_relocate_file">Open Another File</string>
+    <string name="action_remove_missing">Remove Entry</string>
+    <string name="sample_guide_title">Folio Reader Guide.pdf</string>
+</resources>

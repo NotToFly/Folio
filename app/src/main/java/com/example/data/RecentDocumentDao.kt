@@ -36,6 +36,9 @@ interface RecentDocumentDao {
     @Query("DELETE FROM recent_documents WHERE uriString = :uriString")
     suspend fun deleteByUri(uriString: String)
 
-    @Query("DELETE FROM recent_documents")
-    suspend fun clearAll()
+    @Query("SELECT thumbnailPath FROM recent_documents WHERE isPinned = 0 AND thumbnailPath IS NOT NULL")
+    suspend fun getUnpinnedThumbnailPaths(): List<String>
+
+    @Query("DELETE FROM recent_documents WHERE isPinned = 0")
+    suspend fun clearUnpinned()
 }

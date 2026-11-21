@@ -139,4 +139,25 @@ class ExampleRobolectricTest {
         val decoded = ReaderRouteCodec.decode(encoded)
         assertEquals(original, decoded)
     }
+
+    @Test
+    fun `clearing history keeps bookmarked documents and their reading positions`() = runTest {
+        val bookmarkedUri = Uri.parse("content://com.example.docs/bookmarked.pdf")
+        val recentUri = Uri.parse("content://com.example.docs/recent.pdf")
+
+        repository.recordDocumentOpened(bookmarkedUri, totalPages = 80, thumbnailBitmap = null)
+        repository.updateReadingPosition(bookmarkedUri.toString(), lastPage = 25, totalPages = 80, lastZoom = 1.5f)
+        repository.setPinned(bookmarkedUri.toString(), true)
+
+        repository.recordDocumentOpened(recentUri, totalPages = 40, thumbnailBitmap = null)
+        repository.updateReadingPosition(recentUri.toString(), lastPage = 10, totalPages = 40, lastZoom = 1f)
+
+        repository.clearUnpinnedHistory()
+
+        val remaining = repository.recentDocuments.first()
+        assertEquals(1, remaining.size)
+        assertEquals(bookmarkedUri.toString(), remaining.first().uriString)
+        assertTrue(remaining.first().isPinned)
+        assertEquals(25, remaining.first().lastPage)
+    }
 }

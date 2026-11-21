@@ -50,9 +50,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -114,6 +117,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.R
+import com.example.ui.components.CompactButton
+import com.example.ui.components.CompactIconButton
+import com.example.ui.components.CompactPillButton
 import com.example.ui.theme.ReaderMatDark
 import com.example.ui.theme.ReaderMatLight
 import com.example.ui.theme.ReaderMatSepia
@@ -547,7 +553,9 @@ private fun PdfDocumentViewport(
             ReaderTopBar(
                 title = uiState.documentTitle,
                 readingMode = readingMode,
+                isBookmarked = uiState.isBookmarked,
                 onBack = onBack,
+                onToggleBookmark = { viewModel.toggleBookmark() },
                 onCycleMode = { viewModel.cycleReadingMode() },
                 onJumpToPage = onShowJumpDialog
             )
@@ -750,86 +758,90 @@ private fun PdfPageCard(
 private fun ReaderTopBar(
     title: String,
     readingMode: ReadingMode,
+    isBookmarked: Boolean,
     onBack: () -> Unit,
+    onToggleBookmark: () -> Unit,
     onCycleMode: () -> Unit,
     onJumpToPage: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shadowElevation = 4.dp,
+        shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            IconButton(
+            CompactIconButton(
+                icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = stringResource(R.string.cd_back_to_library),
                 onClick = onBack,
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("reader_back_button")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = stringResource(R.string.cd_back_to_library)
-                )
-            }
+                visualSize = 32.dp,
+                iconSize = 17.dp,
+                modifier = Modifier.testTag("reader_back_button")
+            )
 
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 4.dp)
             )
 
-            Surface(
-                onClick = onCycleMode,
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("reading_mode_button")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Brightness4,
-                        contentDescription = stringResource(R.string.cd_reading_mode),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = stringResource(
-                            when (readingMode) {
-                                ReadingMode.PAPER -> R.string.reading_mode_paper
-                                ReadingMode.SEPIA -> R.string.reading_mode_sepia
-                                ReadingMode.NIGHT -> R.string.reading_mode_night
-                            }
-                        ),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
+            CompactIconButton(
+                icon = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
+                contentDescription = stringResource(
+                    if (isBookmarked) R.string.action_unpin else R.string.action_pin
+                ),
+                onClick = onToggleBookmark,
+                containerColor = if (isBookmarked) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                contentColor = if (isBookmarked) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                visualSize = 30.dp,
+                iconSize = 16.dp,
+                modifier = Modifier.testTag("reader_bookmark_button")
+            )
 
-            IconButton(
+            CompactPillButton(
+                text = stringResource(
+                    when (readingMode) {
+                        ReadingMode.PAPER -> R.string.reading_mode_paper
+                        ReadingMode.SEPIA -> R.string.reading_mode_sepia
+                        ReadingMode.NIGHT -> R.string.reading_mode_night
+                    }
+                ),
+                icon = Icons.Rounded.Brightness4,
+                iconContentDescription = stringResource(R.string.cd_reading_mode),
+                onClick = onCycleMode,
+                visualHeight = 30.dp,
+                horizontalPadding = 8.dp,
+                modifier = Modifier.testTag("reading_mode_button")
+            )
+
+            CompactIconButton(
+                icon = Icons.Rounded.Numbers,
+                contentDescription = stringResource(R.string.cd_jump_to_page),
                 onClick = onJumpToPage,
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .testTag("jump_to_page_icon_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Numbers,
-                    contentDescription = stringResource(R.string.cd_jump_to_page)
-                )
-            }
+                visualSize = 30.dp,
+                iconSize = 16.dp,
+                modifier = Modifier.testTag("jump_to_page_icon_button")
+            )
         }
     }
 }
@@ -850,26 +862,26 @@ private fun ReaderBottomDock(
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
             contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = MaterialTheme.shapes.large,
-            shadowElevation = 8.dp,
+            shape = RoundedCornerShape(12.dp),
+            shadowElevation = 6.dp,
             modifier = Modifier
-                .widthIn(max = 560.dp)
+                .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .border(
                     width = 1.dp,
                     color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = MaterialTheme.shapes.large
+                    shape = RoundedCornerShape(12.dp)
                 )
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (totalPages > 1) {
                     Slider(
@@ -884,7 +896,7 @@ private fun ReaderBottomDock(
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(34.dp)
+                            .height(26.dp)
                             .testTag("page_scrubber_slider")
                     )
                 }
@@ -894,78 +906,49 @@ private fun ReaderBottomDock(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
+                    CompactPillButton(
+                        text = "${currentPage + 1} / $totalPages",
                         onClick = onPageBadgeClick,
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .testTag("page_indicator_button")
-                    ) {
-                        Text(
-                            text = "${currentPage + 1} / $totalPages",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
+                        visualHeight = 28.dp,
+                        horizontalPadding = 10.dp,
+                        modifier = Modifier.testTag("page_indicator_button")
+                    )
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        IconButton(
+                        CompactIconButton(
+                            icon = Icons.Rounded.Remove,
+                            contentDescription = stringResource(R.string.cd_zoom_out),
                             onClick = onZoomOut,
                             enabled = scale > PdfZoomMath.MIN_SCALE + 0.02f,
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("zoom_out_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Remove,
-                                contentDescription = stringResource(R.string.cd_zoom_out)
-                            )
-                        }
+                            visualSize = 28.dp,
+                            iconSize = 15.dp,
+                            modifier = Modifier.testTag("zoom_out_button")
+                        )
 
-                        Surface(
+                        CompactPillButton(
+                            text = stringResource(
+                                R.string.zoom_percent_format,
+                                (scale * 100f).roundToInt()
+                            ),
+                            selected = scale > PdfZoomMath.ZOOM_EPSILON,
                             onClick = onResetZoom,
-                            shape = RoundedCornerShape(10.dp),
-                            color = if (scale > PdfZoomMath.ZOOM_EPSILON) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("zoom_reset_button")
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.zoom_percent_format,
-                                    (scale * 100f).roundToInt()
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (scale > PdfZoomMath.ZOOM_EPSILON) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
-                            )
-                        }
+                            visualHeight = 28.dp,
+                            horizontalPadding = 8.dp,
+                            modifier = Modifier.testTag("zoom_reset_button")
+                        )
 
-                        IconButton(
+                        CompactIconButton(
+                            icon = Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.cd_zoom_in),
                             onClick = onZoomIn,
                             enabled = scale < PdfZoomMath.MAX_SCALE - 0.05f,
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("zoom_in_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Add,
-                                contentDescription = stringResource(R.string.cd_zoom_in)
-                            )
-                        }
+                            visualSize = 28.dp,
+                            iconSize = 15.dp,
+                            modifier = Modifier.testTag("zoom_in_button")
+                        )
                     }
                 }
             }
@@ -1022,18 +1005,23 @@ private fun JumpToPageDialog(
             }
         },
         confirmButton = {
-            Button(
+            CompactButton(
+                text = stringResource(R.string.action_go),
                 onClick = { if (parsed != null) onConfirmPage(parsed) },
                 enabled = isValid,
+                visualHeight = 32.dp,
                 modifier = Modifier.testTag("confirm_goto_page_button")
-            ) {
-                Text(stringResource(R.string.action_go))
-            }
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
+            CompactButton(
+                text = stringResource(R.string.action_cancel),
+                onClick = onDismiss,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                visualHeight = 32.dp
+            )
         }
     )
 }
@@ -1115,30 +1103,37 @@ private fun ReaderErrorCard(
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Button(
+            CompactButton(
+                text = stringResource(R.string.action_relocate_file),
+                icon = Icons.Rounded.FolderOpen,
                 onClick = onOpenAnotherFile,
+                visualHeight = 36.dp,
+                fillWidth = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("error_relocate_button")
-            ) {
-                Icon(Icons.Rounded.FolderOpen, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.action_relocate_file))
-            }
-            FilledTonalButton(
+            )
+            CompactButton(
+                text = stringResource(R.string.action_remove_missing),
                 onClick = onRemoveEntry,
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                visualHeight = 36.dp,
+                fillWidth = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("error_remove_button")
-            ) {
-                Text(stringResource(R.string.action_remove_missing))
-            }
-            OutlinedButton(
+            )
+            CompactButton(
+                text = stringResource(R.string.cd_back_to_library),
                 onClick = onBack,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                visualHeight = 36.dp,
+                fillWidth = true,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.cd_back_to_library))
-            }
+            )
         }
     }
 }

@@ -36,7 +36,8 @@ data class ReaderUiState(
     val currentPage: Int = 0,
     val totalPages: Int = 0,
     val readingMode: ReadingMode = ReadingMode.PAPER,
-    val showResumedBanner: Boolean = false
+    val showResumedBanner: Boolean = false,
+    val isBookmarked: Boolean = false
 )
 
 class ReaderViewModel(application: Application) : AndroidViewModel(application) {
@@ -103,6 +104,7 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                         documentTitle = savedEntity.displayName,
                         totalPages = openInfo.pageCount,
                         currentPage = initialPage,
+                        isBookmarked = savedEntity.isPinned,
                         loadState = ReaderLoadState.Ready(
                             totalPages = openInfo.pageCount,
                             initialPage = initialPage,
@@ -192,6 +194,15 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                 ReadingMode.NIGHT -> ReadingMode.PAPER
             }
             state.copy(readingMode = nextMode)
+        }
+    }
+
+    fun toggleBookmark() {
+        val uri = activeUriString ?: return
+        val nextValue = !_uiState.value.isBookmarked
+        _uiState.update { it.copy(isBookmarked = nextValue) }
+        viewModelScope.launch {
+            repository.setPinned(uri, nextValue)
         }
     }
 

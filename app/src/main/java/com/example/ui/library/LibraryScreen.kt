@@ -105,6 +105,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.RecentDocumentEntity
+import com.example.ui.components.CompactButton
+import com.example.ui.components.CompactIconButton
+import com.example.ui.components.CompactPillButton
 import com.example.ui.components.formatFileSize
 import com.example.ui.components.formatRelativeTime
 import kotlinx.coroutines.Dispatchers
@@ -163,7 +166,7 @@ fun LibraryScreen(
                     Column {
                         Text(
                             text = stringResource(R.string.library_title),
-                            style = MaterialTheme.typography.displaySmall,
+                            style = MaterialTheme.typography.headlineMedium,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
@@ -175,31 +178,22 @@ fun LibraryScreen(
                 },
                 actions = {
                     if (!uiState.isLibraryEmpty) {
-                        IconButton(
+                        CompactIconButton(
+                            icon = Icons.AutoMirrored.Rounded.MenuBook,
+                            contentDescription = stringResource(R.string.action_try_sample),
                             onClick = onOpenSampleGuide,
                             enabled = !uiState.isGeneratingSample,
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("toolbar_sample_guide_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                                contentDescription = stringResource(R.string.action_try_sample),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(
+                            modifier = Modifier.testTag("toolbar_sample_guide_button")
+                        )
+                        CompactIconButton(
+                            icon = Icons.Rounded.DeleteSweep,
+                            contentDescription = stringResource(R.string.action_clear_all_recent),
                             onClick = onRequestClearHistory,
+                            enabled = uiState.hasClearableHistory,
                             modifier = Modifier
-                                .minimumInteractiveComponentSize()
+                                .padding(end = 6.dp)
                                 .testTag("clear_history_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.DeleteSweep,
-                                contentDescription = stringResource(R.string.action_clear_all_recent),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -209,22 +203,13 @@ fun LibraryScreen(
         },
         floatingActionButton = {
             if (!uiState.isLibraryEmpty) {
-                ExtendedFloatingActionButton(
+                CompactButton(
+                    text = stringResource(R.string.action_open_pdf),
+                    icon = Icons.Rounded.FolderOpen,
                     onClick = onOpenPdfPicker,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Rounded.FolderOpen,
-                            contentDescription = null
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = stringResource(R.string.action_open_pdf),
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    },
+                    visualHeight = 38.dp,
+                    horizontalPadding = 14.dp,
+                    shadowElevation = 4.dp,
                     modifier = Modifier.testTag("open_pdf_fab")
                 )
             }
@@ -296,23 +281,25 @@ fun LibraryScreen(
                 )
             },
             confirmButton = {
-                Button(
+                CompactButton(
+                    text = stringResource(R.string.action_clear),
                     onClick = onConfirmClearHistory,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    ),
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                    visualHeight = 32.dp,
                     modifier = Modifier.testTag("confirm_clear_history_button")
-                ) {
-                    Text(stringResource(R.string.action_clear))
-                }
+                )
             },
             dismissButton = {
-                TextButton(
+                CompactButton(
+                    text = stringResource(R.string.action_cancel),
                     onClick = onDismissClearHistory,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    visualHeight = 32.dp,
                     modifier = Modifier.testTag("cancel_clear_history_button")
-                ) {
-                    Text(stringResource(R.string.action_cancel))
-                }
+                )
             }
         )
     }
@@ -341,6 +328,26 @@ private fun CompactLibraryContent(
                 onSearchQueryChange = onSearchQueryChange,
                 onFilterSelected = onFilterSelected
             )
+        }
+
+        if (uiState.bookmarkedDocuments.isNotEmpty()) {
+            item(key = "bookmarked_section_label") {
+                SectionHeader(
+                    title = stringResource(R.string.section_bookmarked),
+                    count = uiState.bookmarkedDocuments.size
+                )
+            }
+            items(
+                items = uiState.bookmarkedDocuments,
+                key = { "bookmarked_${it.uriString}" }
+            ) { doc ->
+                RecentDocumentRowCard(
+                    document = doc,
+                    onOpen = { onOpenDocument(doc) },
+                    onTogglePin = { onTogglePin(doc) },
+                    onRemove = { onRemoveDocument(doc) }
+                )
+            }
         }
 
         if (uiState.featuredDocument != null) {
@@ -407,6 +414,26 @@ private fun WideLibraryContent(
                 onSearchQueryChange = onSearchQueryChange,
                 onFilterSelected = onFilterSelected
             )
+        }
+
+        if (uiState.bookmarkedDocuments.isNotEmpty()) {
+            item(span = { GridItemSpan(2) }, key = "bookmarked_label") {
+                SectionHeader(
+                    title = stringResource(R.string.section_bookmarked),
+                    count = uiState.bookmarkedDocuments.size
+                )
+            }
+            items(
+                items = uiState.bookmarkedDocuments,
+                key = { "bookmarked_${it.uriString}" }
+            ) { doc ->
+                RecentDocumentRowCard(
+                    document = doc,
+                    onOpen = { onOpenDocument(doc) },
+                    onTogglePin = { onTogglePin(doc) },
+                    onRemove = { onRemoveDocument(doc) }
+                )
+            }
         }
 
         if (uiState.featuredDocument != null) {
@@ -508,7 +535,7 @@ private fun SearchAndFiltersBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             val filters = listOf(
                 LibraryFilter.ALL to stringResource(R.string.filter_all),
@@ -518,19 +545,12 @@ private fun SearchAndFiltersBar(
             )
             for ((filter, label) in filters) {
                 val selected = selectedFilter == filter
-                FilterChip(
+                CompactPillButton(
+                    text = label,
                     selected = selected,
                     onClick = { onFilterSelected(filter) },
-                    label = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
+                    visualHeight = 30.dp,
+                    horizontalPadding = 10.dp,
                     modifier = Modifier.testTag("filter_chip_${filter.name.lowercase()}")
                 )
             }
@@ -617,24 +637,26 @@ private fun FeaturedDocumentCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         StatusBadge(document = document)
-                        IconButton(
+                        CompactIconButton(
+                            icon = if (document.isPinned) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = stringResource(
+                                if (document.isPinned) R.string.action_unpin else R.string.action_pin
+                            ),
                             onClick = onTogglePin,
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("featured_pin_button")
-                        ) {
-                            Icon(
-                                imageVector = if (document.isPinned) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
-                                contentDescription = stringResource(
-                                    if (document.isPinned) R.string.action_unpin else R.string.action_pin
-                                ),
-                                tint = if (document.isPinned) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
-                        }
+                            containerColor = if (document.isPinned) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            },
+                            contentColor = if (document.isPinned) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            visualSize = 30.dp,
+                            iconSize = 16.dp,
+                            modifier = Modifier.testTag("featured_pin_button")
+                        )
                     }
 
                     Text(
@@ -688,25 +710,14 @@ private fun FeaturedDocumentCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        Button(
+                        CompactButton(
+                            text = stringResource(R.string.action_resume),
+                            icon = Icons.Rounded.PlayArrow,
                             onClick = onOpen,
-                            shape = MaterialTheme.shapes.small,
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                            modifier = Modifier
-                                .minimumInteractiveComponentSize()
-                                .testTag("featured_resume_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = stringResource(R.string.action_resume),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
+                            visualHeight = 30.dp,
+                            horizontalPadding = 10.dp,
+                            modifier = Modifier.testTag("featured_resume_button")
+                        )
                     }
                 }
             }
@@ -825,18 +836,16 @@ private fun RecentDocumentRowCard(
             }
 
             Box {
-                IconButton(
+                CompactIconButton(
+                    icon = Icons.Rounded.MoreVert,
+                    contentDescription = stringResource(R.string.action_remove_recent),
                     onClick = { menuExpanded = true },
-                    modifier = Modifier
-                        .minimumInteractiveComponentSize()
-                        .testTag("recent_document_menu_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MoreVert,
-                        contentDescription = stringResource(R.string.action_remove_recent),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    border = null,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    visualSize = 30.dp,
+                    iconSize = 17.dp,
+                    modifier = Modifier.testTag("recent_document_menu_button")
+                )
                 DropdownMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false }
@@ -1021,55 +1030,36 @@ private fun EmptyLibraryView(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(22.dp))
 
-        Button(
+        CompactButton(
+            text = stringResource(R.string.action_open_pdf),
+            icon = Icons.Rounded.FolderOpen,
             onClick = onOpenPdfPicker,
-            shape = MaterialTheme.shapes.medium,
+            visualHeight = 38.dp,
+            fillWidth = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp)
                 .testTag("empty_open_pdf_button")
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.FolderOpen,
-                contentDescription = null
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = stringResource(R.string.action_open_pdf),
-                style = MaterialTheme.typography.titleSmall
-            )
-        }
+        )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(4.dp))
 
-        FilledTonalButton(
+        CompactButton(
+            text = stringResource(R.string.action_try_sample),
+            icon = Icons.AutoMirrored.Rounded.MenuBook,
             onClick = onOpenSampleGuide,
             enabled = !isGeneratingSample,
-            shape = MaterialTheme.shapes.medium,
+            loading = isGeneratingSample,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            visualHeight = 38.dp,
+            fillWidth = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
                 .testTag("empty_try_sample_button")
-        ) {
-            if (isGeneratingSample) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                    contentDescription = null
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = stringResource(R.string.action_try_sample),
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
+        )
     }
 }
 
@@ -1101,12 +1091,15 @@ private fun FilteredEmptyView(onClearFilters: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(
+            CompactButton(
+                text = stringResource(R.string.action_clear_filters),
                 onClick = onClearFilters,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                visualHeight = 34.dp,
                 modifier = Modifier.testTag("clear_filters_button")
-            ) {
-                Text(stringResource(R.string.action_clear_filters))
-            }
+            )
         }
     }
 }

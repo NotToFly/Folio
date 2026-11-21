@@ -25,6 +25,7 @@ enum class LibraryFilter {
 
 data class LibraryUiState(
     val allDocuments: List<RecentDocumentEntity> = emptyList(),
+    val bookmarkedDocuments: List<RecentDocumentEntity> = emptyList(),
     val featuredDocument: RecentDocumentEntity? = null,
     val remainingDocuments: List<RecentDocumentEntity> = emptyList(),
     val searchQuery: String = "",
@@ -33,8 +34,12 @@ data class LibraryUiState(
     val isGeneratingSample: Boolean = false
 ) {
     val isLibraryEmpty: Boolean get() = allDocuments.isEmpty()
+    val hasClearableHistory: Boolean get() = allDocuments.any { !it.isPinned }
     val isFilterResultEmpty: Boolean
-        get() = allDocuments.isNotEmpty() && featuredDocument == null && remainingDocuments.isEmpty()
+        get() = allDocuments.isNotEmpty() &&
+            bookmarkedDocuments.isEmpty() &&
+            featuredDocument == null &&
+            remainingDocuments.isEmpty()
 }
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
@@ -59,32 +64,49 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         isGeneratingSampleFlow
     ) { documents, query, filter, showClear, generatingSample ->
         val trimmedQuery = query.trim()
-        val filtered = documents.filter { doc ->
-            val matchesQuery = trimmedQuery.isEmpty() ||
-                doc.displayName.contains(trimmedQuery, ignoreCase = true)
-            val matchesFilter = when (filter) {
-                LibraryFilter.ALL -> true
-                LibraryFilter.IN_PROGRESS -> !doc.isFinished
-                LibraryFilter.FINISHED -> doc.isFinished
-                LibraryFilter.PINNED -> doc.isPinned
+        val filtered = documents
+            .filter { doc ->
+                val matchesQuery = trimmedQuery.isEmpty() ||
+                    doc.displayName.contains(trimmedQuery, ignoreCase = true)
+                val matchesFilter = when (filter) {
+                    LibraryFilter.ALL -> true
+                    LibraryFilter.IN_PROGRESS -> !doc.isFinished
+                    LibraryFilter.FINISHED -> doc.isFinished
+                    LibraryFilter.PINNED -> doc.isPinned
+                }
+                matchesQuery && matchesFilter
             }
-            matchesQuery && matchesFilter
-        }
+            .sortedWith(
+                compareByDescending<RecentDocumentEntity> { it.isPinned }
+                    .thenByDescending { it.lastOpenedAt }
+            )
 
-        val showHero = trimmedQuery.isEmpty() && filter == LibraryFilter.ALL && filtered.isNotEmpty()
-        val featured = if (showHero) {
-            filtered.maxByOrNull { it.lastOpenedAt }
+        val isDefaultUnfilteredView = trimmedQuery.isEmpty() && filter == LibraryFilter.ALL
+        val bookmarked = if (isDefaultUnfilteredView) {
+            filtered.filter { it.isPinned }
         } else {
-            null
+            emptyList()
         }
-        val remaining = if (featured != null) {
-            filtered.filterNot { it.uriString == featured.uriString }
+        val unbookmarked = if (isDefaultUnfilteredView) {
+            filtered.filterNot { it.isPinned }
         } else {
             filtered
         }
 
+        val featured = if (isDefaultUnfilteredView && unbookmarked.isNotEmpty()) {
+            unbookmarked.first()
+        } else {
+            null
+        }
+        val remaining = if (featured != null) {
+            unbookmarked.drop(1)
+        } else {
+            unbookmarked
+        }
+
         LibraryUiState(
             allDocuments = documents,
+            bookmarkedDocuments = bookmarked,
             featuredDocument = featured,
             remainingDocuments = remaining,
             searchQuery = query,
@@ -143,7 +165,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     fun confirmClearHistory() {
         showClearDialogFlow.update { false }
         viewModelScope.launch {
-            repository.clearAll()
+            repository.clearUnpinnedHistory()
         }
     }
 

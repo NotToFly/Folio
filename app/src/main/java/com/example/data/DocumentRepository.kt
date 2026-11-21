@@ -174,13 +174,11 @@ class DocumentRepository(
         }
     }
 
-    suspend fun clearAll() = withContext(Dispatchers.IO) {
-        dao.clearAll()
-        val thumbDir = File(context.filesDir, "thumbnails")
-        runCatching {
-            if (thumbDir.exists()) {
-                thumbDir.listFiles()?.forEach { it.delete() }
-            }
+    suspend fun clearUnpinnedHistory() = withContext(Dispatchers.IO) {
+        val removableThumbs = dao.getUnpinnedThumbnailPaths()
+        dao.clearUnpinned()
+        removableThumbs.forEach { path ->
+            runCatching { File(path).delete() }
         }
     }
 

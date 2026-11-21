@@ -6,6 +6,7 @@
     <string name="library_subtitle">Personal Document Desk</string>
     <string name="action_open_pdf">Open PDF</string>
     <string name="action_try_sample">Try 24-Page Sample Guide</string>
+    <string name="section_bookmarked">Bookmarked</string>
     <string name="section_continue_reading">Continue Reading</string>
     <string name="section_recent_files">Recent Documents</string>
     <string name="action_resume">Resume</string>
@@ -13,7 +14,7 @@
     <string name="filter_all">All</string>
     <string name="filter_in_progress">In Progress</string>
     <string name="filter_finished">Finished</string>
-    <string name="filter_pinned">Pinned</string>
+    <string name="filter_pinned">Bookmarked</string>
     <string name="empty_title">Your reading desk is clear</string>
     <string name="empty_body">Open any PDF from your device to enjoy smooth scrolling, sharp pinch-to-zoom, and automatic page memory—even on massive files.</string>
     <string name="empty_filtered_title">No matching documents</string>
@@ -23,12 +24,12 @@
     <string name="percent_read_format">%1$d%% read</string>
     <string name="finished_badge">Finished</string>
     <string name="just_started_badge">New</string>
-    <string name="action_pin">Pin document</string>
-    <string name="action_unpin">Unpin document</string>
+    <string name="action_pin">Bookmark document</string>
+    <string name="action_unpin">Remove bookmark</string>
     <string name="action_remove_recent">Remove from recent</string>
     <string name="action_clear_all_recent">Clear history</string>
     <string name="clear_history_title">Clear reading history?</string>
-    <string name="clear_history_message">This removes all items and saved page positions from your recent list. Your actual PDF files are untouched.</string>
+    <string name="clear_history_message">This removes unbookmarked items and their saved page positions from your recent list. Bookmarked documents and your PDF files stay safe.</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_clear">Clear</string>
     <string name="document_removed_snackbar">Removed \"%1$s\" from recent</string>

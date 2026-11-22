@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.example.books.BookFormat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -43,6 +44,18 @@ class DocumentRepository(
         withContext(Dispatchers.IO) {
             dao.getByUri(uriString)
         }
+
+    fun queryMimeType(uri: Uri): String? {
+        return try {
+            if (uri.scheme == ContentResolver.SCHEME_CONTENT) {
+                context.contentResolver.getType(uri)
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     suspend fun queryMetadata(uri: Uri): DocumentMetadata = withContext(Dispatchers.IO) {
         var displayName: String? = null
@@ -83,7 +96,7 @@ class DocumentRepository(
 
         val resolvedName = displayName?.takeIf { it.isNotBlank() }
             ?: uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-            ?: "Document.pdf"
+            ?: "Document"
 
         DocumentMetadata(
             displayName = resolvedName,
@@ -108,8 +121,10 @@ class DocumentRepository(
 
     suspend fun recordDocumentOpened(
         uri: Uri,
+        format: BookFormat = BookFormat.PDF,
         totalPages: Int,
-        thumbnailBitmap: Bitmap?
+        thumbnailBitmap: Bitmap?,
+        preferredTitle: String? = null
     ): RecentDocumentEntity = withContext(Dispatchers.IO) {
         val uriString = uri.toString()
         val existing = dao.getByUri(uriString)
@@ -122,19 +137,25 @@ class DocumentRepository(
             existing?.thumbnailPath
         }
 
-        val clampedLastPage = (existing?.lastPage ?: 0)
-            .coerceIn(0, (totalPages - 1).coerceAtLeast(0))
+        val safeTotal = totalPages.coerceAtLeast(1)
+        val clampedLastPage = (existing?.lastPage ?: 0).coerceIn(0, safeTotal - 1)
+        val clampedLastOffset = (existing?.lastCharOffset ?: 0).coerceIn(0, safeTotal - 1)
+        val finalDisplayName = metadata.displayName.takeIf { it.isNotBlank() && it != "Document" }
+            ?: preferredTitle?.takeIf { it.isNotBlank() }
+            ?: metadata.displayName
 
         val entity = RecentDocumentEntity(
             uriString = uriString,
-            displayName = metadata.displayName,
+            displayName = finalDisplayName,
             fileSizeBytes = if (metadata.fileSizeBytes > 0L) metadata.fileSizeBytes else (existing?.fileSizeBytes ?: 0L),
-            totalPages = totalPages,
+            totalPages = safeTotal,
             lastPage = clampedLastPage,
             lastZoom = existing?.lastZoom ?: 1f,
             lastOpenedAt = now,
             thumbnailPath = savedThumbPath,
-            isPinned = existing?.isPinned ?: false
+            isPinned = existing?.isPinned ?: false,
+            formatType = format.name,
+            lastCharOffset = clampedLastOffset
         )
         dao.upsert(entity)
         entity
@@ -144,14 +165,17 @@ class DocumentRepository(
         uriString: String,
         lastPage: Int,
         totalPages: Int,
-        lastZoom: Float
+        lastZoom: Float,
+        lastCharOffset: Int = lastPage
     ) = withContext(Dispatchers.IO) {
         val safeTotal = totalPages.coerceAtLeast(1)
         val safePage = lastPage.coerceIn(0, safeTotal - 1)
+        val safeOffset = lastCharOffset.coerceIn(0, safeTotal - 1)
         val safeZoom = lastZoom.coerceIn(1f, 5f)
         dao.updateReadingPosition(
             uriString = uriString,
             lastPage = safePage,
+            lastCharOffset = safeOffset,
             totalPages = safeTotal,
             lastZoom = safeZoom,
             lastOpenedAt = System.currentTimeMillis()

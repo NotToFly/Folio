@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val CompactControlShape: Shape = RoundedCornerShape(8.dp)
+val CompactControlShape: Shape = RoundedCornerShape(4.dp)
 
 /**
  * Compact, crisp rounded-rectangle action button styled for clean document/invoice interfaces.

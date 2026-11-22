@@ -18,17 +18,18 @@ import kotlinx.coroutines.launch
 
 enum class LibraryFilter {
     ALL,
+    PINNED,
     IN_PROGRESS,
-    FINISHED,
-    PINNED
+    FINISHED
 }
 
 data class LibraryUiState(
     val allDocuments: List<RecentDocumentEntity> = emptyList(),
     val bookmarkedDocuments: List<RecentDocumentEntity> = emptyList(),
-    val featuredDocument: RecentDocumentEntity? = null,
-    val remainingDocuments: List<RecentDocumentEntity> = emptyList(),
+    val recentDocuments: List<RecentDocumentEntity> = emptyList(),
     val searchQuery: String = "",
+    val isSearchExpanded: Boolean = false,
+    val isGridView: Boolean = false,
     val selectedFilter: LibraryFilter = LibraryFilter.ALL,
     val showClearHistoryDialog: Boolean = false,
     val isGeneratingSample: Boolean = false
@@ -38,9 +39,17 @@ data class LibraryUiState(
     val isFilterResultEmpty: Boolean
         get() = allDocuments.isNotEmpty() &&
             bookmarkedDocuments.isEmpty() &&
-            featuredDocument == null &&
-            remainingDocuments.isEmpty()
+            recentDocuments.isEmpty()
 }
+
+private data class LibraryControlsState(
+    val searchQuery: String = "",
+    val isSearchExpanded: Boolean = false,
+    val isGridView: Boolean = false,
+    val selectedFilter: LibraryFilter = LibraryFilter.ALL,
+    val showClearHistoryDialog: Boolean = false,
+    val isGeneratingSample: Boolean = false
+)
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -49,30 +58,24 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         dao = FolioDatabase.getInstance(application).recentDocumentDao()
     )
 
-    private val searchQueryFlow = MutableStateFlow("")
-    private val selectedFilterFlow = MutableStateFlow(LibraryFilter.ALL)
-    private val showClearDialogFlow = MutableStateFlow(false)
-    private val isGeneratingSampleFlow = MutableStateFlow(false)
-
+    private val controlsFlow = MutableStateFlow(LibraryControlsState())
     private var lastRemovedDocument: RecentDocumentEntity? = null
 
     val uiState: StateFlow<LibraryUiState> = combine(
         repository.recentDocuments,
-        searchQueryFlow,
-        selectedFilterFlow,
-        showClearDialogFlow,
-        isGeneratingSampleFlow
-    ) { documents, query, filter, showClear, generatingSample ->
-        val trimmedQuery = query.trim()
+        controlsFlow
+    ) { documents, controls ->
+        val trimmedQuery = controls.searchQuery.trim()
         val filtered = documents
             .filter { doc ->
                 val matchesQuery = trimmedQuery.isEmpty() ||
-                    doc.displayName.contains(trimmedQuery, ignoreCase = true)
-                val matchesFilter = when (filter) {
+                    doc.displayName.contains(trimmedQuery, ignoreCase = true) ||
+                    doc.bookFormat.badge.contains(trimmedQuery, ignoreCase = true)
+                val matchesFilter = when (controls.selectedFilter) {
                     LibraryFilter.ALL -> true
+                    LibraryFilter.PINNED -> doc.isPinned
                     LibraryFilter.IN_PROGRESS -> !doc.isFinished
                     LibraryFilter.FINISHED -> doc.isFinished
-                    LibraryFilter.PINNED -> doc.isPinned
                 }
                 matchesQuery && matchesFilter
             }
@@ -81,38 +84,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     .thenByDescending { it.lastOpenedAt }
             )
 
-        val isDefaultUnfilteredView = trimmedQuery.isEmpty() && filter == LibraryFilter.ALL
-        val bookmarked = if (isDefaultUnfilteredView) {
+        val isDefaultUnfiltered = trimmedQuery.isEmpty() && controls.selectedFilter == LibraryFilter.ALL
+        val bookmarked = if (isDefaultUnfiltered) {
             filtered.filter { it.isPinned }
         } else {
             emptyList()
         }
-        val unbookmarked = if (isDefaultUnfilteredView) {
+        val recent = if (isDefaultUnfiltered) {
             filtered.filterNot { it.isPinned }
         } else {
             filtered
         }
 
-        val featured = if (isDefaultUnfilteredView && unbookmarked.isNotEmpty()) {
-            unbookmarked.first()
-        } else {
-            null
-        }
-        val remaining = if (featured != null) {
-            unbookmarked.drop(1)
-        } else {
-            unbookmarked
-        }
-
         LibraryUiState(
             allDocuments = documents,
             bookmarkedDocuments = bookmarked,
-            featuredDocument = featured,
-            remainingDocuments = remaining,
-            searchQuery = query,
-            selectedFilter = filter,
-            showClearHistoryDialog = showClear,
-            isGeneratingSample = generatingSample
+            recentDocuments = recent,
+            searchQuery = controls.searchQuery,
+            isSearchExpanded = controls.isSearchExpanded,
+            isGridView = controls.isGridView,
+            selectedFilter = controls.selectedFilter,
+            showClearHistoryDialog = controls.showClearHistoryDialog,
+            isGeneratingSample = controls.isGeneratingSample
         )
     }.stateIn(
         scope = viewModelScope,
@@ -121,16 +114,33 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     )
 
     fun onSearchQueryChange(query: String) {
-        searchQueryFlow.update { query }
+        controlsFlow.update { it.copy(searchQuery = query) }
+    }
+
+    fun openSearch() {
+        controlsFlow.update { it.copy(isSearchExpanded = true) }
+    }
+
+    fun closeSearch() {
+        controlsFlow.update { it.copy(isSearchExpanded = false, searchQuery = "") }
+    }
+
+    fun toggleGridView() {
+        controlsFlow.update { it.copy(isGridView = !it.isGridView) }
     }
 
     fun onFilterSelected(filter: LibraryFilter) {
-        selectedFilterFlow.update { filter }
+        controlsFlow.update { it.copy(selectedFilter = filter) }
     }
 
     fun clearFilters() {
-        searchQueryFlow.update { "" }
-        selectedFilterFlow.update { LibraryFilter.ALL }
+        controlsFlow.update {
+            it.copy(
+                searchQuery = "",
+                isSearchExpanded = false,
+                selectedFilter = LibraryFilter.ALL
+            )
+        }
     }
 
     fun togglePin(document: RecentDocumentEntity) {
@@ -155,15 +165,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun requestClearHistory() {
-        showClearDialogFlow.update { true }
+        controlsFlow.update { it.copy(showClearHistoryDialog = true) }
     }
 
     fun dismissClearHistory() {
-        showClearDialogFlow.update { false }
+        controlsFlow.update { it.copy(showClearHistoryDialog = false) }
     }
 
     fun confirmClearHistory() {
-        showClearDialogFlow.update { false }
+        controlsFlow.update { it.copy(showClearHistoryDialog = false) }
         viewModelScope.launch {
             repository.clearUnpinnedHistory()
         }
@@ -174,14 +184,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openSampleGuide(onReady: (Uri) -> Unit) {
-        if (isGeneratingSampleFlow.value) return
+        if (controlsFlow.value.isGeneratingSample) return
         viewModelScope.launch {
-            isGeneratingSampleFlow.update { true }
+            controlsFlow.update { it.copy(isGeneratingSample = true) }
             try {
                 val uri = SampleGuideGenerator.getOrCreateSampleGuideUri(getApplication())
                 onReady(uri)
             } finally {
-                isGeneratingSampleFlow.update { false }
+                controlsFlow.update { it.copy(isGeneratingSample = false) }
             }
         }
     }

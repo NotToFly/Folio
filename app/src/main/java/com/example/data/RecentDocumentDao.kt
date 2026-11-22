@@ -19,12 +19,14 @@ interface RecentDocumentDao {
 
     @Query(
         "UPDATE recent_documents " +
-            "SET lastPage = :lastPage, totalPages = :totalPages, lastZoom = :lastZoom, lastOpenedAt = :lastOpenedAt " +
+            "SET lastPage = :lastPage, lastCharOffset = :lastCharOffset, totalPages = :totalPages, " +
+            "lastZoom = :lastZoom, lastOpenedAt = :lastOpenedAt " +
             "WHERE uriString = :uriString"
     )
     suspend fun updateReadingPosition(
         uriString: String,
         lastPage: Int,
+        lastCharOffset: Int,
         totalPages: Int,
         lastZoom: Float,
         lastOpenedAt: Long

@@ -1,6 +1,5 @@
 package com.example.ui.reader
 
-import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -14,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,17 +39,13 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -63,22 +58,15 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Numbers
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -113,13 +101,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.R
+import com.example.books.BookFormat
 import com.example.ui.components.CompactButton
 import com.example.ui.components.CompactIconButton
 import com.example.ui.components.CompactPillButton
+import com.example.ui.theme.OnyxAccentBlue
+import com.example.ui.theme.OnyxBadgeBg
+import com.example.ui.theme.OnyxBorder
+import com.example.ui.theme.OnyxCardSurface
+import com.example.ui.theme.OnyxFabBg
+import com.example.ui.theme.OnyxFabInk
+import com.example.ui.theme.OnyxHairline
+import com.example.ui.theme.OnyxSelectedBg
+import com.example.ui.theme.OnyxTextMuted
+import com.example.ui.theme.OnyxTextPrimary
+import com.example.ui.theme.OnyxTopBar
 import com.example.ui.theme.ReaderMatDark
 import com.example.ui.theme.ReaderMatLight
 import com.example.ui.theme.ReaderMatSepia
@@ -179,6 +180,7 @@ fun ReaderScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
+
             is ReaderLoadState.Error -> {
                 ReaderErrorCard(
                     message = loadState.message,
@@ -190,8 +192,10 @@ fun ReaderScreen(
                         .padding(24.dp)
                 )
             }
-            is ReaderLoadState.Ready -> {
-                PdfDocumentViewport(
+
+            is ReaderLoadState.ReadyFixed -> {
+                FixedDocumentViewport(
+                    format = loadState.format,
                     totalPages = loadState.totalPages,
                     initialPage = loadState.initialPage,
                     readingMode = uiState.readingMode,
@@ -219,9 +223,31 @@ fun ReaderScreen(
                     onDismissJumpDialog = { showJumpDialog = false }
                 )
             }
+
+            is ReaderLoadState.ReadyReflowable -> {
+                ReflowableReaderViewport(
+                    book = loadState.book,
+                    initialBlockIndex = loadState.initialBlockIndex,
+                    uiState = uiState,
+                    hudVisible = hudVisible,
+                    onToggleHud = { hudVisible = !hudVisible },
+                    onBack = {
+                        viewModel.persistPositionImmediately()
+                        onBack()
+                    },
+                    onToggleBookmark = { viewModel.toggleBookmark() },
+                    onCycleReadingMode = { viewModel.cycleReadingMode() },
+                    onToggleLayoutMode = { viewModel.toggleReflowLayoutMode() },
+                    onAdjustFontSize = { delta -> viewModel.adjustFontSize(delta) },
+                    onToggleFontFamily = { viewModel.toggleFontFamily() },
+                    onPositionChanged = { blockIdx, totalBlocks ->
+                        viewModel.onReflowPositionChanged(blockIdx, totalBlocks)
+                    }
+                )
+            }
         }
 
-        // Non-intrusive "Resumed at page X" banner
+        // Non-intrusive "Resumed" banner
         AnimatedVisibility(
             visible = uiState.showResumedBanner,
             enter = fadeIn() + slideInVertically { -it },
@@ -229,32 +255,37 @@ fun ReaderScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(top = 74.dp)
+                .padding(top = 64.dp)
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                shape = CircleShape,
-                shadowElevation = 6.dp,
+                color = OnyxSelectedBg,
+                contentColor = OnyxAccentBlue,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, OnyxAccentBlue.copy(alpha = 0.4f)),
+                shadowElevation = 4.dp,
                 modifier = Modifier.testTag("resumed_page_banner")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.BookmarkAdded,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = stringResource(
-                            R.string.resumed_page_toast,
-                            uiState.currentPage + 1,
-                            uiState.totalPages
-                        ),
-                        style = MaterialTheme.typography.labelLarge
+                        text = if (uiState.loadState is ReaderLoadState.ReadyReflowable) {
+                            stringResource(R.string.resumed_percent_toast, uiState.reflowProgressPercent)
+                        } else {
+                            stringResource(
+                                R.string.resumed_page_toast,
+                                uiState.currentPage + 1,
+                                uiState.totalPages
+                            )
+                        },
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }
@@ -263,7 +294,8 @@ fun ReaderScreen(
 }
 
 @Composable
-private fun PdfDocumentViewport(
+private fun FixedDocumentViewport(
+    format: BookFormat,
     totalPages: Int,
     initialPage: Int,
     readingMode: ReadingMode,
@@ -294,14 +326,12 @@ private fun PdfDocumentViewport(
     val currentOffsetY by rememberUpdatedState(offsetY)
     val currentViewportSize by rememberUpdatedState(viewportSize)
 
-    // Restore initial page when document changes
     LaunchedEffect(uiState.uriString, initialPage) {
         if (initialPage in 0 until totalPages && lazyListState.firstVisibleItemIndex != initialPage) {
             lazyListState.scrollToItem(initialPage)
         }
     }
 
-    // Track the most visible page in viewport
     val visiblePageIndex by remember {
         derivedStateOf {
             val layoutInfo = lazyListState.layoutInfo
@@ -364,11 +394,10 @@ private fun PdfDocumentViewport(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val pageContainerMaxWidth = minOf(maxWidth, 880.dp)
-        val baseWidthPx = with(density) { (pageContainerMaxWidth - 24.dp).toPx().roundToInt() }
+        val baseWidthPx = with(density) { (pageContainerMaxWidth - 20.dp).toPx().roundToInt() }
             .coerceIn(480, 1440)
         val renderBucketWidthPx = PdfZoomMath.computeRenderBucketWidth(baseWidthPx, scale)
 
-        // Prefetch adjacent pages silently in background
         LaunchedEffect(visiblePageIndex, renderBucketWidthPx, totalPages) {
             for (offset in listOf(1, -1, 2)) {
                 val target = visiblePageIndex + offset
@@ -380,7 +409,8 @@ private fun PdfDocumentViewport(
             }
         }
 
-        val colorFilter = readingMode.toColorFilter()
+        // Preserve original full-color comic artwork in CBZ; apply tint/invert on PDFs
+        val colorFilter = if (format == BookFormat.CBZ) null else readingMode.toColorFilter()
 
         Box(
             modifier = Modifier
@@ -477,7 +507,6 @@ private fun PdfDocumentViewport(
                             }
                         } while (event.changes.any { it.pressed })
 
-                        // Smooth inertial fling when releasing a zoomed 1-finger pan
                         if (isZoomedPanActive && currentScale > PdfZoomMath.ZOOM_EPSILON) {
                             val velocity = velocityTracker.calculateVelocity()
                             val speed = Offset(velocity.x, velocity.y).getDistance()
@@ -509,12 +538,12 @@ private fun PdfDocumentViewport(
                 state = lazyListState,
                 userScrollEnabled = scale <= PdfZoomMath.ZOOM_EPSILON,
                 contentPadding = PaddingValues(
-                    top = 88.dp,
-                    bottom = 136.dp,
-                    start = 12.dp,
-                    end = 12.dp
+                    top = 84.dp,
+                    bottom = 132.dp,
+                    start = 10.dp,
+                    end = 10.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()
@@ -552,6 +581,7 @@ private fun PdfDocumentViewport(
         ) {
             ReaderTopBar(
                 title = uiState.documentTitle,
+                formatBadge = format.badge,
                 readingMode = readingMode,
                 isBookmarked = uiState.isBookmarked,
                 onBack = onBack,
@@ -561,7 +591,7 @@ private fun PdfDocumentViewport(
             )
         }
 
-        // Floating Scrub Preview Pill while dragging the slider
+        // Floating Scrub Preview Pill
         AnimatedVisibility(
             visible = isScrubbing,
             enter = fadeIn(),
@@ -569,13 +599,14 @@ private fun PdfDocumentViewport(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(bottom = 148.dp)
+                .padding(bottom = 112.dp)
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                shape = CircleShape,
-                shadowElevation = 8.dp
+                color = OnyxSelectedBg,
+                contentColor = OnyxAccentBlue,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, OnyxAccentBlue.copy(alpha = 0.4f)),
+                shadowElevation = 6.dp
             ) {
                 Text(
                     text = stringResource(
@@ -583,13 +614,13 @@ private fun PdfDocumentViewport(
                         scrubPagePreview.roundToInt().coerceIn(0, totalPages - 1) + 1,
                         totalPages
                     ),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                 )
             }
         }
 
-        // Bottom Reader Dock (Page Scrubber + Zoom Controls)
+        // Bottom Reader Dock
         AnimatedVisibility(
             visible = hudVisible,
             enter = fadeIn() + slideInVertically { it },
@@ -714,15 +745,15 @@ private fun PdfPageCard(
     val paperColor = when (readingMode) {
         ReadingMode.PAPER -> Color.White
         ReadingMode.SEPIA -> Color(0xFFF5ECD8)
-        ReadingMode.NIGHT -> Color(0xFF20201E)
+        ReadingMode.NIGHT -> Color(0xFF14161A)
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
-            .shadow(elevation = 4.dp, shape = RoundedCornerShape(4.dp))
-            .clip(RoundedCornerShape(4.dp))
+            .shadow(elevation = 3.dp, shape = RoundedCornerShape(3.dp))
+            .clip(RoundedCornerShape(3.dp))
             .background(paperColor),
         contentAlignment = Alignment.Center
     ) {
@@ -741,13 +772,14 @@ private fun PdfPageCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.dp,
+                    color = OnyxAccentBlue
                 )
                 Text(
                     text = "${pageIndex + 1} / $totalPages",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = OnyxTextMuted
                 )
             }
         }
@@ -757,6 +789,7 @@ private fun PdfPageCard(
 @Composable
 private fun ReaderTopBar(
     title: String,
+    formatBadge: String,
     readingMode: ReadingMode,
     isBookmarked: Boolean,
     onBack: () -> Unit,
@@ -765,83 +798,93 @@ private fun ReaderTopBar(
     onJumpToPage: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        shadowElevation = 3.dp,
+        color = OnyxTopBar.copy(alpha = 0.96f),
+        contentColor = OnyxTextPrimary,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            CompactIconButton(
-                icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = stringResource(R.string.cd_back_to_library),
-                onClick = onBack,
-                visualSize = 32.dp,
-                iconSize = 17.dp,
-                modifier = Modifier.testTag("reader_back_button")
-            )
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        Column {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 4.dp)
-            )
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                CompactIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back_to_library),
+                    onClick = onBack,
+                    containerColor = OnyxBadgeBg,
+                    contentColor = OnyxTextPrimary,
+                    border = BorderStroke(1.dp, OnyxHairline),
+                    visualSize = 32.dp,
+                    iconSize = 17.dp,
+                    modifier = Modifier.testTag("reader_back_button")
+                )
 
-            CompactIconButton(
-                icon = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
-                contentDescription = stringResource(
-                    if (isBookmarked) R.string.action_unpin else R.string.action_pin
-                ),
-                onClick = onToggleBookmark,
-                containerColor = if (isBookmarked) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-                contentColor = if (isBookmarked) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                visualSize = 30.dp,
-                iconSize = 16.dp,
-                modifier = Modifier.testTag("reader_bookmark_button")
-            )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 6.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp),
+                        color = OnyxTextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = formatBadge,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = OnyxAccentBlue
+                    )
+                }
 
-            CompactPillButton(
-                text = stringResource(
-                    when (readingMode) {
-                        ReadingMode.PAPER -> R.string.reading_mode_paper
-                        ReadingMode.SEPIA -> R.string.reading_mode_sepia
-                        ReadingMode.NIGHT -> R.string.reading_mode_night
-                    }
-                ),
-                icon = Icons.Rounded.Brightness4,
-                iconContentDescription = stringResource(R.string.cd_reading_mode),
-                onClick = onCycleMode,
-                visualHeight = 30.dp,
-                horizontalPadding = 8.dp,
-                modifier = Modifier.testTag("reading_mode_button")
-            )
+                CompactIconButton(
+                    icon = if (isBookmarked) Icons.Rounded.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = stringResource(
+                        if (isBookmarked) R.string.action_unpin else R.string.action_pin
+                    ),
+                    onClick = onToggleBookmark,
+                    containerColor = if (isBookmarked) OnyxSelectedBg else OnyxBadgeBg,
+                    contentColor = if (isBookmarked) OnyxAccentBlue else OnyxTextMuted,
+                    border = BorderStroke(1.dp, OnyxHairline),
+                    visualSize = 30.dp,
+                    iconSize = 16.dp,
+                    modifier = Modifier.testTag("reader_bookmark_button")
+                )
 
-            CompactIconButton(
-                icon = Icons.Rounded.Numbers,
-                contentDescription = stringResource(R.string.cd_jump_to_page),
-                onClick = onJumpToPage,
-                visualSize = 30.dp,
-                iconSize = 16.dp,
-                modifier = Modifier.testTag("jump_to_page_icon_button")
-            )
+                CompactPillButton(
+                    text = stringResource(
+                        when (readingMode) {
+                            ReadingMode.PAPER -> R.string.reading_mode_paper
+                            ReadingMode.SEPIA -> R.string.reading_mode_sepia
+                            ReadingMode.NIGHT -> R.string.reading_mode_night
+                        }
+                    ),
+                    icon = Icons.Rounded.Brightness4,
+                    iconContentDescription = stringResource(R.string.cd_reading_mode),
+                    onClick = onCycleMode,
+                    visualHeight = 30.dp,
+                    horizontalPadding = 8.dp,
+                    modifier = Modifier.testTag("reading_mode_button")
+                )
+
+                CompactIconButton(
+                    icon = Icons.Rounded.Numbers,
+                    contentDescription = stringResource(R.string.cd_jump_to_page),
+                    onClick = onJumpToPage,
+                    containerColor = OnyxBadgeBg,
+                    contentColor = OnyxTextPrimary,
+                    border = BorderStroke(1.dp, OnyxHairline),
+                    visualSize = 30.dp,
+                    iconSize = 16.dp,
+                    modifier = Modifier.testTag("jump_to_page_icon_button")
+                )
+            }
+            HorizontalDivider(thickness = 1.dp, color = OnyxHairline)
         }
     }
 }
@@ -858,29 +901,23 @@ private fun ReaderBottomDock(
     onResetZoom: () -> Unit,
     onZoomIn: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
+    Surface(
+        color = OnyxTopBar.copy(alpha = 0.97f),
+        contentColor = OnyxTextPrimary,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = RoundedCornerShape(12.dp),
-            shadowElevation = 6.dp,
+        Column(
             modifier = Modifier
-                .widthIn(max = 520.dp)
                 .fillMaxWidth()
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    shape = RoundedCornerShape(12.dp)
-                )
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
+            HorizontalDivider(thickness = 1.dp, color = OnyxHairline)
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .widthIn(max = 560.dp)
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 if (totalPages > 1) {
@@ -890,9 +927,9 @@ private fun ReaderBottomDock(
                         onValueChangeFinished = onScrubFinished,
                         valueRange = 0f..(totalPages - 1).toFloat(),
                         colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            thumbColor = OnyxAccentBlue,
+                            activeTrackColor = OnyxAccentBlue,
+                            inactiveTrackColor = OnyxBorder
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -923,6 +960,9 @@ private fun ReaderBottomDock(
                             contentDescription = stringResource(R.string.cd_zoom_out),
                             onClick = onZoomOut,
                             enabled = scale > PdfZoomMath.MIN_SCALE + 0.02f,
+                            containerColor = OnyxBadgeBg,
+                            contentColor = OnyxTextPrimary,
+                            border = BorderStroke(1.dp, OnyxHairline),
                             visualSize = 28.dp,
                             iconSize = 15.dp,
                             modifier = Modifier.testTag("zoom_out_button")
@@ -945,6 +985,9 @@ private fun ReaderBottomDock(
                             contentDescription = stringResource(R.string.cd_zoom_in),
                             onClick = onZoomIn,
                             enabled = scale < PdfZoomMath.MAX_SCALE - 0.05f,
+                            containerColor = OnyxBadgeBg,
+                            contentColor = OnyxTextPrimary,
+                            border = BorderStroke(1.dp, OnyxHairline),
                             visualSize = 28.dp,
                             iconSize = 15.dp,
                             modifier = Modifier.testTag("zoom_in_button")
@@ -969,10 +1012,14 @@ private fun JumpToPageDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = OnyxTopBar,
+        titleContentColor = OnyxTextPrimary,
+        textContentColor = OnyxTextMuted,
+        shape = RoundedCornerShape(6.dp),
         title = {
             Text(
                 text = stringResource(R.string.goto_page_title),
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.titleMedium
             )
         },
         text = {
@@ -1009,6 +1056,8 @@ private fun JumpToPageDialog(
                 text = stringResource(R.string.action_go),
                 onClick = { if (parsed != null) onConfirmPage(parsed) },
                 enabled = isValid,
+                containerColor = OnyxFabBg,
+                contentColor = OnyxFabInk,
                 visualHeight = 32.dp,
                 modifier = Modifier.testTag("confirm_goto_page_button")
             )
@@ -1017,9 +1066,9 @@ private fun JumpToPageDialog(
             CompactButton(
                 text = stringResource(R.string.action_cancel),
                 onClick = onDismiss,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                containerColor = OnyxBadgeBg,
+                contentColor = OnyxTextPrimary,
+                border = BorderStroke(1.dp, OnyxBorder),
                 visualHeight = 32.dp
             )
         }
@@ -1032,27 +1081,31 @@ private fun LoadingDocumentOverlay(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
+        shape = RoundedCornerShape(6.dp),
+        color = OnyxCardSurface,
+        border = BorderStroke(1.dp, OnyxHairline),
         modifier = modifier.padding(24.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 28.dp),
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 2.4.dp,
+                color = OnyxAccentBlue
+            )
             Text(
                 text = stringResource(R.string.loading_document),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.titleSmall,
+                color = OnyxTextPrimary
             )
             if (title.isNotBlank()) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = OnyxTextMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1069,70 +1122,67 @@ private fun ReaderErrorCard(
     onRemoveEntry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = modifier.widthIn(max = 420.dp)
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = OnyxCardSurface,
+        border = BorderStroke(1.dp, OnyxBorder),
+        modifier = modifier
+            .widthIn(max = 420.dp)
+            .fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier.padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.ErrorOutline,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(34.dp)
             )
             Text(
                 text = stringResource(R.string.reader_error_title),
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.titleMedium,
+                color = OnyxTextPrimary
             )
             Text(
-                text = stringResource(R.string.reader_error_permission),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = message.ifBlank { stringResource(R.string.reader_error_permission) },
+                style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
+                color = OnyxTextMuted
             )
-            if (message.isNotBlank()) {
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+            ) {
+                CompactButton(
+                    text = stringResource(R.string.action_relocate_file),
+                    icon = Icons.Rounded.FolderOpen,
+                    onClick = onOpenAnotherFile,
+                    containerColor = OnyxFabBg,
+                    contentColor = OnyxFabInk,
+                    visualHeight = 34.dp,
+                    modifier = Modifier.testTag("error_open_another_button")
+                )
+                CompactButton(
+                    text = stringResource(R.string.action_remove_missing),
+                    onClick = onRemoveEntry,
+                    containerColor = OnyxBadgeBg,
+                    contentColor = MaterialTheme.colorScheme.error,
+                    border = BorderStroke(1.dp, OnyxBorder),
+                    visualHeight = 34.dp,
+                    modifier = Modifier.testTag("error_remove_entry_button")
                 )
             }
-            Spacer(Modifier.height(4.dp))
-            CompactButton(
-                text = stringResource(R.string.action_relocate_file),
-                icon = Icons.Rounded.FolderOpen,
-                onClick = onOpenAnotherFile,
-                visualHeight = 36.dp,
-                fillWidth = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("error_relocate_button")
-            )
-            CompactButton(
-                text = stringResource(R.string.action_remove_missing),
-                onClick = onRemoveEntry,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                visualHeight = 36.dp,
-                fillWidth = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("error_remove_button")
-            )
             CompactButton(
                 text = stringResource(R.string.cd_back_to_library),
                 onClick = onBack,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                visualHeight = 36.dp,
-                fillWidth = true,
-                modifier = Modifier.fillMaxWidth()
+                containerColor = OnyxTopBar,
+                contentColor = OnyxTextMuted,
+                border = BorderStroke(1.dp, OnyxHairline),
+                visualHeight = 32.dp
             )
         }
     }

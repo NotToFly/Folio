@@ -1,10 +1,12 @@
 package com.example
 
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
 import android.util.Base64
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -51,18 +53,21 @@ internal object ReaderRouteCodec {
 
 class MainActivity : ComponentActivity() {
 
-    private var externalPdfUri by mutableStateOf<Uri?>(null)
+    private var externalDocumentUri by mutableStateOf<Uri?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+        )
         handleIncomingIntent(intent)
 
         setContent {
             FolioTheme {
                 FolioAppRoot(
-                    externalPdfUri = externalPdfUri,
-                    onConsumeExternalUri = { externalPdfUri = null }
+                    externalDocumentUri = externalDocumentUri,
+                    onConsumeExternalUri = { externalDocumentUri = null }
                 )
             }
         }
@@ -77,7 +82,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_VIEW) {
             intent.data?.let { uri ->
-                externalPdfUri = uri
+                externalDocumentUri = uri
             }
         }
     }
@@ -85,14 +90,14 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun FolioAppRoot(
-    externalPdfUri: Uri?,
+    externalDocumentUri: Uri?,
     onConsumeExternalUri: () -> Unit
 ) {
     val navController = rememberNavController()
     val libraryViewModel: LibraryViewModel = viewModel()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
 
-    val openPdfInReader: (Uri) -> Unit = { uri ->
+    val openDocumentInReader: (Uri) -> Unit = { uri ->
         libraryViewModel.takePersistablePermission(uri)
         val encoded = ReaderRouteCodec.encode(uri.toString())
         navController.navigate("reader/$encoded") {
@@ -101,15 +106,20 @@ fun FolioAppRoot(
         }
     }
 
-    val pdfPickerLauncher = rememberLauncherForActivityResult(
+    val documentPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { openPdfInReader(it) }
+        uri?.let { openDocumentInReader(it) }
     }
 
-    LaunchedEffect(externalPdfUri) {
-        externalPdfUri?.let { uri ->
-            openPdfInReader(uri)
+    // Launch with */* so Android SAF never grays out .fb2, .mobi, .doc, .docx, .cbz, or .md files.
+    val launchUniversalFilePicker: () -> Unit = {
+        documentPickerLauncher.launch(arrayOf("*/*"))
+    }
+
+    LaunchedEffect(externalDocumentUri) {
+        externalDocumentUri?.let { uri ->
+            openDocumentInReader(uri)
             onConsumeExternalUri()
         }
     }
@@ -117,24 +127,25 @@ fun FolioAppRoot(
     NavHost(
         navController = navController,
         startDestination = ROUTE_LIBRARY,
-        enterTransition = { fadeIn(animationSpec = tween(220)) },
-        exitTransition = { fadeOut(animationSpec = tween(180)) }
+        enterTransition = { fadeIn(animationSpec = tween(200)) },
+        exitTransition = { fadeOut(animationSpec = tween(160)) }
     ) {
         composable(route = ROUTE_LIBRARY) {
             LibraryScreen(
                 uiState = libraryUiState,
-                onOpenPdfPicker = {
-                    pdfPickerLauncher.launch(arrayOf("application/pdf"))
-                },
+                onOpenPdfPicker = launchUniversalFilePicker,
                 onOpenDocument = { doc ->
-                    openPdfInReader(Uri.parse(doc.uriString))
+                    openDocumentInReader(Uri.parse(doc.uriString))
                 },
                 onOpenSampleGuide = {
                     libraryViewModel.openSampleGuide { uri ->
-                        openPdfInReader(uri)
+                        openDocumentInReader(uri)
                     }
                 },
                 onSearchQueryChange = libraryViewModel::onSearchQueryChange,
+                onOpenSearch = libraryViewModel::openSearch,
+                onCloseSearch = libraryViewModel::closeSearch,
+                onToggleGridView = libraryViewModel::toggleGridView,
                 onFilterSelected = libraryViewModel::onFilterSelected,
                 onClearFilters = libraryViewModel::clearFilters,
                 onTogglePin = libraryViewModel::togglePin,
@@ -170,9 +181,7 @@ fun FolioAppRoot(
                 uiState = readerUiState,
                 viewModel = readerViewModel,
                 onBack = { navController.popBackStack() },
-                onOpenAnotherFile = {
-                    pdfPickerLauncher.launch(arrayOf("application/pdf"))
-                }
+                onOpenAnotherFile = launchUniversalFilePicker
             )
         }
     }

@@ -1,6 +1,6 @@
 {
   "name": "Folio",
-  "description": "Fast, smooth PDF reader engineered for large documents with pinch-to-zoom, automatic reading position memory, and recent files.",
+  "description": "Fast, offline universal e-book and document reader for PDF, EPUB, FB2, MOBI, DOCX, DOC, RTF, TXT, Markdown, HTML, and CBZ with Onyx dark UI, smooth scroll and page-turn modes, and automatic reading position memory.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
